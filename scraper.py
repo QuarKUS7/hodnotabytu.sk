@@ -255,17 +255,21 @@ class InzeratParser:
         return inzerat_info
 
 
-
 if __name__ == '__main__':
     print('Scraping started!')
     page_parser = PageParser()
     inzerat_parser = InzeratParser()
     scraper = Scraper(url, page_parser, inzerat_parser)
     records = scraper.scrape()
+
     print(records)
+
     df = pd.DataFrame(records)
     name = 'nehntelnosti_' + str(int(time.time())) + '.csv'
-    fullpath = '~/projekty/zakolko/' + name
+
+    fullpath = os.getcwd() + name
     print(fullpath)
+    print('Saving to {}'.format(fullpath))
+
     df.to_csv(fullpath)
     print('Scraping done!')
