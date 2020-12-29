@@ -59,7 +59,8 @@ class Scraper:
         "Main function responsible for running scraper"
         output = []
         pager = 1
-        while True:
+        #while True:
+        for i in range(10):
             page = Page(url+str(pager))
             page.body = self.page_parser.process_page(page.url)
             page.inzeraty_url.extend(self.page_parser.get_inzerat_href(page.body))
@@ -69,9 +70,6 @@ class Scraper:
                 break
             print(page.inzeraty_url)
             output.extend(self.inzerat_parser.process_all_inzerat_on_page(page.inzeraty_url))
-            ##########
-            break
-            ##########
         return output
 
 
@@ -86,7 +84,7 @@ class PageParser:
     def get_raw_page(self, page):
         "Get and parse page into bs4 object"
         time.sleep(random.uniform(1,5))
-        response = requests.get(page)
+        response = requests.get(page, timeout=60)
         return response
 
     def parse_body_by_bs4(self, response):
@@ -109,7 +107,7 @@ class InzeratParser:
     def parse_inzerat_html(self, url):
         "Parse page into bs4 object"
         time.sleep(random.uniform(1,5))
-        response= requests.get(url)
+        response= requests.get(url, timeout=60)
         soup = BeautifulSoup(response.text, "html.parser")
         return soup
 
@@ -117,7 +115,10 @@ class InzeratParser:
         records = []
         for i in inzeraty:
             print(i)
-            soup = self.parse_inzerat_html(i)
+            try:
+                soup = self.parse_inzerat_html(i)
+            except TimeoutError:
+                print('Timeout pre: {}'.format(i))
             inzerat_info = self.get_info_from_inzerat(soup)
             record = self.create_inzerat_record(inzerat_info)
             records.append(record)
@@ -256,6 +257,7 @@ class InzeratParser:
 
 
 if __name__ == '__main__':
+    print('Scraping started!')
     page_parser = PageParser()
     inzerat_parser = InzeratParser()
     scraper = Scraper(url, page_parser, inzerat_parser)
@@ -266,3 +268,4 @@ if __name__ == '__main__':
     fullpath = '~/projekty/zakolko/' + name
     print(fullpath)
     df.to_csv(fullpath)
+    print('Scraping done!')
