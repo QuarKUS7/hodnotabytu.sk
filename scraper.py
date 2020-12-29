@@ -1,6 +1,8 @@
+import os
 import re
 import time
 import json
+import logging
 import random
 import requests
 import pandas as pd
@@ -8,11 +10,12 @@ import unicodedata
 
 from bs4 import BeautifulSoup
 
-# url template
-url = 'https://www.nehnutelnosti.sk/bratislava/byty/predaj/?p[page]='
+LOGFILE = '/var/log/scraper.log'
 
 SLEEP_TIME = 3
 
+# url template
+url = 'https://www.nehnutelnosti.sk/bratislava/byty/predaj/?p[page]='
 
 # Example inzerat
 inzerat = {
@@ -25,14 +28,14 @@ inzerat = {
     'Cena_m2':0.0,
     'Cena':0,
     'ID':'',
-    'Rok_vystavby':1900,
+    'Rok_vystavby':0,
     'Pocet_podlazi':0,
     'Pocet_izieb':0,
     'Ener_cert': '',
     'Podlazie':0,
-    'Vytah':False,
-    'Kurenie':False,
-    'Verejne_parkovanie':False,
+    'Vytah':'',
+    'Kurenie':'',
+    'Verejne_parkovanie':'',
 }
 
 def strip_accents(text):
@@ -60,15 +63,15 @@ class Scraper:
         output = []
         pager = 1
         #while True:
-        for i in range(10):
+        for i in range(1):
             page = Page(url+str(pager))
             page.body = self.page_parser.process_page(page.url)
             page.inzeraty_url.extend(self.page_parser.get_inzerat_href(page.body))
             if page.inzeraty_url:
                 pager+1
             else:
-                break
-            print(page.inzeraty_url)
+                return output
+            log.info(page.inzeraty_url)
             output.extend(self.inzerat_parser.process_all_inzerat_on_page(page.inzeraty_url))
         return output
 
@@ -114,11 +117,10 @@ class InzeratParser:
     def process_all_inzerat_on_page(self, inzeraty):
         records = []
         for i in inzeraty:
-            print(i)
             try:
                 soup = self.parse_inzerat_html(i)
             except TimeoutError:
-                print('Timeout pre: {}'.format(i))
+                log.error('Timeout pre: {}'.format(i))
             inzerat_info = self.get_info_from_inzerat(soup)
             record = self.create_inzerat_record(inzerat_info)
             records.append(record)
@@ -152,7 +154,7 @@ class InzeratParser:
                 try:
                     k, v = str(t.get_text()).replace('\n','').split(':')
                 except ValueError:
-                    print(t)
+                    log.error(t)
                 inzerat_info[k] = v.strip()
 
         gps_div = soup.find('div', {'id': 'map-detail'}).attrs['data-gps-marker']
@@ -254,22 +256,33 @@ class InzeratParser:
 
         return inzerat_info
 
+def init_logger():
+    log = logging.getLogger()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s')
+    file_handler = logging.FileHandler(LOGFILE)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(10)
+    log.addHandler(file_handler)
+    log.setLevel(10)
+
+    return log
+
 
 if __name__ == '__main__':
-    print('Scraping started!')
+
+    log = init_logger()
+
+    log.info('Scraping started!')
     page_parser = PageParser()
     inzerat_parser = InzeratParser()
     scraper = Scraper(url, page_parser, inzerat_parser)
     records = scraper.scrape()
 
-    print(records)
-
     df = pd.DataFrame(records)
-    name = 'nehntelnosti_' + str(int(time.time())) + '.csv'
+    name = '/nehnutelnosti_' + str(int(time.time())) + '.csv'
 
-    fullpath = os.getcwd() + name
-    print(fullpath)
-    print('Saving to {}'.format(fullpath))
+    FULLPATH = os.getcwd() + name
+    log.info('Saving to {}'.format(FULLPATH))
 
-    df.to_csv(fullpath)
-    print('Scraping done!')
+    df.to_csv(FULLPATH)
+    log.info('Scraping done!')
