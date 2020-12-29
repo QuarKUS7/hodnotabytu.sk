@@ -68,7 +68,7 @@ class Scraper:
             page.body = self.page_parser.process_page(page.url)
             page.inzeraty_url.extend(self.page_parser.get_inzerat_href(page.body))
             if page.inzeraty_url:
-                pager+1
+                pager =+1
             else:
                 return output
             log.info(page.inzeraty_url)
@@ -121,7 +121,11 @@ class InzeratParser:
                 soup = self.parse_inzerat_html(i)
             except TimeoutError:
                 log.error('Timeout pre: {}'.format(i))
-            inzerat_info = self.get_info_from_inzerat(soup)
+            try:
+                inzerat_info = self.get_info_from_inzerat(soup)
+            except AttributeError:
+                log.error(i)
+                continue
             record = self.create_inzerat_record(inzerat_info)
             records.append(record)
         return records
@@ -155,6 +159,7 @@ class InzeratParser:
                     k, v = str(t.get_text()).replace('\n','').split(':')
                 except ValueError:
                     log.error(t)
+                    continue
                 inzerat_info[k] = v.strip()
 
         gps_div = soup.find('div', {'id': 'map-detail'}).attrs['data-gps-marker']
