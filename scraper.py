@@ -53,6 +53,7 @@ def strip_accents(text):
 
 
 class Scraper:
+
     def __init__(self, url, page_parser, inzerat_parser):
         self.url = url
         self.page_parser = page_parser
@@ -62,21 +63,27 @@ class Scraper:
         "Main function responsible for running scraper"
         output = []
         pager = 1
-        #while True:
-        for i in range(1):
+        while True:
             page = Page(url+str(pager))
             page.body = self.page_parser.process_page(page.url)
             page.inzeraty_url.extend(self.page_parser.get_inzerat_href(page.body))
             if page.inzeraty_url:
-                pager =+1
+                pager += 1
             else:
                 return output
             log.info(page.inzeraty_url)
-            output.extend(self.inzerat_parser.process_all_inzerat_on_page(page.inzeraty_url))
+            processed = self.inzerat_parser.process_all_inzerat_on_page(page.inzeraty_url)
+
+            if not processed:
+                log.info('No more new inzeraty!')
+                return output
+
+            output.extend(processed)
         return output
 
 
 class Page:
+
     def __init__(self, url):
         self.url = url
         self.body = None
@@ -84,6 +91,7 @@ class Page:
 
 
 class PageParser:
+
     def get_raw_page(self, page):
         "Get and parse page into bs4 object"
         time.sleep(random.uniform(1,5))
@@ -107,6 +115,10 @@ class PageParser:
         return inzeraty
 
 class InzeratParser:
+
+    def __init__(self, base):
+        self.base = base
+
     def parse_inzerat_html(self, url):
         "Parse page into bs4 object"
         time.sleep(random.uniform(1,5))
@@ -117,6 +129,9 @@ class InzeratParser:
     def process_all_inzerat_on_page(self, inzeraty):
         records = []
         for i in inzeraty:
+            inzerat_id = 'nehnutelnosti.sk_' + i.split('/')[3]
+            if inzerat_id in self.base.ID.values:
+                continue
             try:
                 soup = self.parse_inzerat_html(i)
             except TimeoutError:
@@ -128,6 +143,7 @@ class InzeratParser:
                 continue
             record = self.create_inzerat_record(inzerat_info)
             records.append(record)
+
         return records
 
     def get_info_from_inzerat(self, soup):
@@ -279,15 +295,21 @@ if __name__ == '__main__':
 
     log.info('Scraping started!')
     page_parser = PageParser()
-    inzerat_parser = InzeratParser()
+    basepath = os.getcwd() + '/base.csv'
+    base_df = pd.read_csv(basepath)
+
+    inzerat_parser = InzeratParser(base_df)
     scraper = Scraper(url, page_parser, inzerat_parser)
     records = scraper.scrape()
 
     df = pd.DataFrame(records)
+    df_new = pd.concat([base_df + df])
+
     name = '/nehnutelnosti_' + str(int(time.time())) + '.csv'
 
     FULLPATH = os.getcwd() + name
     log.info('Saving to {}'.format(FULLPATH))
+    log.info('Base len {}, new base len {}'.format(base_df.shape[0], df_new.shape[0]))
 
-    df.to_csv(FULLPATH)
+    df_new.to_csv(FULLPATH)
     log.info('Scraping done!')
