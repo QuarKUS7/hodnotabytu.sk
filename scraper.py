@@ -36,6 +36,7 @@ inzerat = {
     'Vytah':'',
     'Kurenie':'',
     'Verejne_parkovanie':'',
+    'Timestamp':0
 }
 
 def strip_accents(text):
@@ -275,6 +276,8 @@ class InzeratParser:
         inzerat_info.update(man_int_info)
         inzerat_info.update(volun_int_info)
 
+        inzerat_info['Timestamp'] = datetime.now().isoformat()
+
         return inzerat_info
 
 def init_logger():
@@ -308,6 +311,7 @@ if __name__ == '__main__':
     name = '/nehnutelnosti_' + str(int(time.time())) + '.csv'
 
     FULLPATH = os.getcwd() + name
+    log.info('New inzeraty: {}', df)
     log.info('Saving to {}'.format(FULLPATH))
     log.info('Base len {}, new base len {}'.format(base_df.shape[0], df_new.shape[0]))
 
