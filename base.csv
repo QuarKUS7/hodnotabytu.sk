@@ -1,4 +1,4 @@
-,ID,Mesto,Okres,Druh,Stav,Ulica,Vytah,Ener_cert,Uzit_plocha,Latitude,Longitude,Cena,Rok_vystavby,Podlazie,Pocet_nadzem_podlazi,Lodzia,Balkon,Garazove_statie,Kurenie,Garaz,Timestamp
+,id,mesto,okres,druh,stav,ulica,vytah,energ_cert,uzit_plocha,latitude,longitude,cena,rok_vystavby,podlazie,pocet_nadz_podlazi,lodzia,balkon,garazove_statie,kurenie,garaz,timestamp
 0,nehnutelnosti.sk_4213053,Bratislava IV - Dubravka,okres Bratislava,2 izbovy byt,Čiastočná rekonštrukcia,Hanulova,Ano,B,35,48.17837374,17.04076237,111900,1975,4,12,,,,,,
 1,nehnutelnosti.sk_4213543,Bratislava III - Nove Mesto,okres Bratislava,2 izbovy byt,Vo výstavbe,Skalicka cesta,,,54,48.1827989,17.1278896,193399,255,1,4,,,,,,
 2,nehnutelnosti.sk_4222169,Bratislava III - Nove Mesto,okres Bratislava,Garsonka,Novostavba,Racianska,Ano,A,33,48.18002801181,17.128899402745,90000,2013,3,5,,,,,,
