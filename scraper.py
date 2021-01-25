@@ -205,7 +205,7 @@ class InzeratParser:
         return inzerat_info
 
     def get_str_info(self, inzerat_info, inzerat):
-        inzerat.id = 'nehnutelnosti.sk_' + inzerat_info['ID inzerátu'].strip()
+        inzerat.id = inzerat_info['ID inzerátu'].strip()
         inzerat.mesto = inzerat_info['Mesto']
         inzerat.okres = inzerat_info['Okres']
         inzerat.druh = inzerat_info['Druh']
@@ -256,6 +256,7 @@ class InzeratParser:
         self.get_str_info(inzerat_info, inzerat)
 
         inzerat.timestamp = datetime.now().isoformat()
+        inzerat.zdroj = 'www.nehnutelnosti.sk'
 
         return inzerat
 

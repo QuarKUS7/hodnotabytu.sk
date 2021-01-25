@@ -10,6 +10,7 @@ class Inzerat:
     druh: str= ''
     stav: str= ''
     id: str= ''
+    zdroj: str=''
     kurenie: str= ''
     energ_cert: str= ''
     uzit_plocha: float=-1

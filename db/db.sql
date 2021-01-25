@@ -2,6 +2,7 @@
 
 CREATE TABLE `inzeraty` (
         `id` VARCHAR(255),
+        `zdroj` VARCHAR(255),
         `ulica` VARCHAR(255),
         `mesto` VARCHAR(255),
         `okres` VARCHAR(255),
@@ -25,7 +26,7 @@ CREATE TABLE `inzeraty` (
         `garazove_statie` VARCHAR(100),
         `garaz` VARCHAR(100),
         `timestamp` timestamp,
-        PRIMARY KEY (`id`)
+        PRIMARY KEY (`zdroj`,`id`)
 ) ENGINE=InnoDB CHARSET='utf8';
 
 CREATE USER 'scraper'@'localhost' IDENTIFIED BY 'password';
