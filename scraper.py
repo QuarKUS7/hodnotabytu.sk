@@ -6,13 +6,14 @@ import json
 import logging
 import random
 import requests
-import pandas as pd
 import unicodedata
 
 from bs4 import BeautifulSoup
 from datetime import datetime
+from dataclasses import asdict
 
 from inzerat import Inzerat
+from db.Database import Database
 
 LOGFILE = '/var/log/scraper.log'
 
@@ -20,6 +21,13 @@ SLEEP_TIME = 3
 
 # url template
 url = 'https://www.nehnutelnosti.sk/bratislava/byty/predaj/?p[page]='
+
+def get_float_from_tag(tag):
+    found = re.search(r'(-?\d+\,?\d+)', tag.replace(' ',''))
+    if found:
+        return float(found.group(0).replace(',', '.'))
+    return None
+
 
 def strip_accents(text):
 
@@ -87,6 +95,8 @@ class Scraper:
             output.extend(processed)
             pager += 1
 
+            return output
+
         return output
 
 
@@ -111,17 +121,14 @@ class Page:
 
 class InzeratParser:
 
-    def __init__(self, base):
-        self.base = base
-
     def parse_inzerat(self, url):
         response = make_request(url)
         body = parse_response(response)
         return body
 
     def has_already_seen(self, i):
-        inzerat_id = 'nehnutelnosti.sk_' + i.split('/')[3]
-        return inzerat_id in self.base.ID.values
+        """ To be implemented """
+        return False
 
     def process_inzerat(self, i):
         try:
@@ -190,30 +197,27 @@ class InzeratParser:
         gps_info = json.loads(gps_div)
         inzerat_info['lat'] = gps_info['gpsLatitude']
         inzerat_info['lon'] = gps_info['gpsLongitude']
+
         for key, value in inzerat_info.items():
             if isinstance(value, str):
                 inzerat_info[key] = strip_accents(value)
+
         return inzerat_info
 
     def get_str_info(self, inzerat_info, inzerat):
         inzerat.id = 'nehnutelnosti.sk_' + inzerat_info['ID inzerátu'].strip()
-        inzerat.mesto = inzerat_info['Mesto'].strip()
-        inzerat.okres = inzerat_info['Okres'].strip()
-        inzerat.druh = inzerat_info['Druh'].strip()
-        try:
-            inzerat.stav = inzerat_info['Stav'].strip()
-        except KeyError:
-            pass
-        voluntary_str_info_keys = ['Ulica', 'Balkón', 'Kúrenie', 'Výťah', 'Energetický certifikát', 'Lodžia', 'Garáž', 'Garážové státie']
-        voluntary_str_info_keys = ['Ulica', 'Balkon', 'Kurenie', 'Vytah', 'Energeticky certifikat', 'Lodzia', 'Garaz', 'Garazove statie']
+        inzerat.mesto = inzerat_info['Mesto']
+        inzerat.okres = inzerat_info['Okres']
+        inzerat.druh = inzerat_info['Druh']
 
-        voluntary_str_info_columns = ['ulica', 'balkon', 'burenie', 'vytah', 'ener_cert', 'lodzia', 'garaz', 'garazove_statie']
+        inzerat.stav = inzerat_info.get('Stav', '')
 
-        for key, column in zip(voluntary_str_info_keys, voluntary_str_info_columns):
-            try:
-                inzerat.column = inzerat_info[key]
-            except KeyError:
-                pass
+        inzerat.ulica = inzerat_info.get('Ulica', '')
+        inzerat.kurenie = inzerat_info.get('Kúrenie', '')
+        inzerat.vytah = inzerat_info.get('Výťah', '')
+        inzerat.energ_cert = inzerat_info.get('Energetický certifikát', '')
+        inzerat.garaz = inzerat_info.get('Garáž', '')
+        inzerat.garazove_statie = inzerat_info.get('Garážové státie', '')
 
     def get_int_info(self, inzerat_info, inzerat):
         try:
@@ -221,25 +225,28 @@ class InzeratParser:
         except ValueError:
             pass
 
-        try:
-            inzerat.uzit_plocha = float(re.sub('[^0-9]','', inzerat_info['Úžit. plocha'])[:-1])
-            inzerat.cena_m2 = float(inzerat.cena / inzerat.uzit_plocha)
-        except KeyError:
-            pass
+        uzit_plocha = get_float_from_tag(inzerat_info.get('Úžit. plocha', '-1'))
+        if uzit_plocha:
+            inzerat.uzit_plocha = uzit_plocha
+
+        cena_m2 = get_float_from_tag(inzerat_info.get('Cena za m2', '-1'))
+        if cena_m2:
+            inzerat.cena_m2 = cena_m2
 
         inzerat.latitude = inzerat_info['lat']
         inzerat.longitude = inzerat_info['lon']
 
-        voluntary_int_info_keys = ['Rok výstavby', 'Podlažie', 'Počet nadzemných podlaží']
-        voluntary_int_info_keys = ['Rok vystavby', 'Podlazie', 'Pocet nadzemnych podlazi']
+        balkon = get_float_from_tag(inzerat_info.get('Balkón', '-1'))
+        if balkon:
+            inzerat.balkon = balkon
+        lodzia = get_float_from_tag(inzerat_info.get('Lodžia', '-1'))
+        if lodzia:
+            inzerat.lodzia = lodzia
 
-        voluntary_int_info_columns = ['rok_vystavby', 'podlazie', 'pocet_nadz_podlazi']
-
-        for key, column in zip(voluntary_int_info_keys, voluntary_int_info_columns):
-            try:
-                inzerat.column = inzerat_info[key]
-            except KeyError:
-                pass
+        inzerat.podlazie = int(inzerat_info.get('Podlažie', -1))
+        inzerat.rok_vystavby = int(inzerat_info.get('Rok výstavby', -1))
+        inzerat.pocet_nadz_podlazi = int(inzerat_info.get('Počet nadzemných podlaží', -1))
+        inzerat.pocet_izieb = int(inzerat_info.get('Počet izieb/miestností', -1))
 
     def create_inzerat_record(self, inzerat_info):
 
@@ -248,10 +255,16 @@ class InzeratParser:
         self.get_int_info(inzerat_info, inzerat)
         self.get_str_info(inzerat_info, inzerat)
 
-
         inzerat.timestamp = datetime.now().isoformat()
 
         return inzerat
+
+def insert_inzerat(inzerat):
+    record = asdict(inzerat)
+    columns = ', '.join("`" + str(x).replace('/', '_') + "`" for x in record.keys())
+    values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
+    sql = "INSERT IGNORE INTO %s ( %s ) VALUES ( %s );" % ('inzeraty', columns, values)
+    db.insert(sql)
 
 
 if __name__ == '__main__':
@@ -259,10 +272,8 @@ if __name__ == '__main__':
     log = init_logger()
 
     log.info('Scraping started!')
-    basepath = os.getcwd() + '/base.csv'
-    base_df = pd.read_csv(basepath)
 
-    inzerat_parser = InzeratParser(base_df)
+    inzerat_parser = InzeratParser()
     scraper = Scraper(url, inzerat_parser)
     records = scraper.scrape()
 
@@ -270,15 +281,9 @@ if __name__ == '__main__':
         log.info('No new inzeraty, quiting without output!')
         sys.exit()
 
-    df = pd.DataFrame(records)
-    df_new = pd.concat([base_df + df])
+    db = Database(log=log)
 
-    name = '/nehnutelnosti_' + str(int(time.time())) + '.csv'
+    for r in records:
+        insert_inzerat(r)
 
-    FULLPATH = os.getcwd() + name
-    log.info('Saving to {}'.format(FULLPATH))
-    log.info('New inzeraty {}'.format(df.ID.values))
-    log.info('Base len {}, new base len {}'.format(base_df.shape[0], df_new.shape[0]))
-
-    df_new.to_csv(FULLPATH)
     log.info('Scraping done!')
