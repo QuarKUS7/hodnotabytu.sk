@@ -95,8 +95,6 @@ class Scraper:
             output.extend(processed)
             pager += 1
 
-            return output
-
         return output
 
 
@@ -114,21 +112,28 @@ class Page:
 
     def get_inzerat_href(self):
         "Find links to each inzerat in page. Usually there 30 inzerats on single page"
-        inzeraty = self.body.find_all('a', href=re.compile('\.sk/(\d){7}'))
+        inzeraty = self.body.find_all('a', href=re.compile(r'\.sk/(\d){7}'))
         inzeraty = [inzerat['href'] for inzerat in inzeraty]
         self.inzeraty_url = list(set(inzeraty))
 
 
 class InzeratParser:
 
+    def __init__(self, db):
+        self.db = db
+
     def parse_inzerat(self, url):
         response = make_request(url)
         body = parse_response(response)
         return body
 
-    def has_already_seen(self, i):
-        """ To be implemented """
-        return False
+    def has_already_seen(self, url):
+        id = url.split('/')[3]
+        if self.db.is_inzerat_existing(id):
+            log.info('Inzerat alrady seen: {}'.format(url))
+            return True
+        else:
+            False
 
     def process_inzerat(self, i):
         try:
@@ -260,12 +265,24 @@ class InzeratParser:
 
         return inzerat
 
-def insert_inzerat(inzerat):
-    record = asdict(inzerat)
-    columns = ', '.join("`" + str(x).replace('/', '_') + "`" for x in record.keys())
-    values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
-    sql = "INSERT IGNORE INTO %s ( %s ) VALUES ( %s );" % ('inzeraty', columns, values)
-    db.insert(sql)
+class ScraperDB(Database):
+
+    def __init__(self, log):
+        super().__init__(log)
+
+    def insert_inzerat(self, inzerat):
+        record = asdict(inzerat)
+        columns = ', '.join("`" + str(x).replace('/', '_') + "`" for x in record.keys())
+        values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
+        sql = "INSERT IGNORE INTO %s ( %s ) VALUES ( %s );" % ('inzeraty', columns, values)
+        rowcount = self.execute(sql)
+        if rowcount > 0:
+            log.info("{} record inserted".format(inzerat.id))
+
+    def is_inzerat_existing(self, id):
+        query = "SELECT 1 FROM inzeraty WHERE id = %s" % (id)
+        res = self.select_one(query)
+        return res
 
 
 if __name__ == '__main__':
@@ -274,7 +291,8 @@ if __name__ == '__main__':
 
     log.info('Scraping started!')
 
-    inzerat_parser = InzeratParser()
+    db = ScraperDB(log=log)
+    inzerat_parser = InzeratParser(db)
     scraper = Scraper(url, inzerat_parser)
     records = scraper.scrape()
 
@@ -282,9 +300,8 @@ if __name__ == '__main__':
         log.info('No new inzeraty, quiting without output!')
         sys.exit()
 
-    db = Database(log=log)
-
     for r in records:
-        insert_inzerat(r)
+        db.insert_inzerat(r)
 
+    log.info('{} records inserted'.format(len(records)))
     log.info('Scraping done!')

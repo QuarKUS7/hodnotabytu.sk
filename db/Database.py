@@ -13,8 +13,11 @@ class Database:
             )
         self.cursor = self.cnx.cursor()
 
-    def insert(self, query):
+    def select_one(self, query, args=()):
+        self.cursor.execute(query, args)
+        return self.cursor.fetchone()
+
+    def execute(self, query):
         self.cursor.execute(query,)
         self.cnx.commit()
-        self.log.info("{} record inserted.".format(self.cursor.rowcount))
-
+        return self.cursor.rowcount

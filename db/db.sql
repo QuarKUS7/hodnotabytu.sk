@@ -1,4 +1,4 @@
---CREATE DATABASE zakolko CHARACTER SET='utf8'; 
+CREATE DATABASE zakolko CHARACTER SET='utf8'; 
 
 CREATE TABLE `inzeraty` (
         `id` VARCHAR(255),
