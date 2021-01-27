@@ -1,0 +1,8 @@
+/var/log/scraper.log {
+    weekly
+    missingok
+    rotate 14
+    compress
+    copytruncate
+    notifempty
+}
