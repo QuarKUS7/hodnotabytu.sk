@@ -89,7 +89,6 @@ class Scraper:
             processed = self.inzerat_parser.get_all_inzeraty_on_page(page.inzeraty_url)
 
             if not processed:
-                log.info('No more new inzeraty!')
                 return output
 
             output.extend(processed)

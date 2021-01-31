@@ -17,6 +17,10 @@ class Database:
         self.cursor.execute(query, args)
         return self.cursor.fetchone()
 
+    def select_all(self, query, args=()):
+        self.cursor.execute(query, args)
+        return self.cursor.fetchall()
+
     def execute(self, query):
         self.cursor.execute(query,)
         self.cnx.commit()
