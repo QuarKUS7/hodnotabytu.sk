@@ -1,8 +1,8 @@
+import os
 import time
 import logging
-import joblib
+import pickle
 
-import numpy as np
 import xgboost as xgb
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -58,7 +58,11 @@ class Pipeline():
 
     def make_dummies_from_cat(self):
 
-        self.data = pd.get_dummies(self.data, columns=['mesto','druh','stav', 'kurenie','energ_cert', 'vytah'], prefix='', prefix_sep='')
+        cat_columns = ['mesto','druh','stav', 'kurenie','energ_cert', 'vytah']
+
+        self.data = pd.get_dummies(self.data, columns=cat_columns, prefix=cat_columns)
+
+        self.data.columns = self.data.columns.str.strip()
 
     def make_data_matrix(self):
         y = self.data['cena']
@@ -69,7 +73,7 @@ class Pipeline():
 
     def train_model(self):
         params = {"objective":"reg:linear",'colsample_bytree': 0.3,'learning_rate': 0.1,
-                'max_depth': 5, 'alpha': 10}
+                'max_depth': 7, 'alpha': 10}
 
         cv_results = xgb.cv(dtrain=self.data_dmatrix, params=params, nfold=3,
                     num_boost_round=50,early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
@@ -78,9 +82,20 @@ class Pipeline():
 
         print((cv_results["test-rmse-mean"]).tail(1))
 
-        xg_reg = xgb.train(params=params, dtrain=self.data_dmatrix, num_boost_round=10)
+        self.xg_reg = xgb.train(params=params, dtrain=self.data_dmatrix, num_boost_round=10)
 
-        joblib.dump(xg_reg, open('model/model_{}'.format(str(time.time())), 'wb'))
+    def save_model(self):
+
+        model_name = 'model_{}'.format(str(time.time()))
+
+        pickle.dump(self.xg_reg, open('model/{}'.format(model_name), 'wb'))
+
+        try:
+            os.unlink('./model/best')
+        except FileNotFoundError:
+            log.warning('No best soft link was found!')
+
+        os.symlink(model_name, './model/best')
 
     def run_pipeline(self):
 
@@ -95,6 +110,8 @@ class Pipeline():
         self.make_data_matrix()
 
         self.train_model()
+
+        self.save_model()
 
         self.log.info('Pipeline finished!')
 
