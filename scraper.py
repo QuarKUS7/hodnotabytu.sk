@@ -204,7 +204,7 @@ class InzeratParser:
 
         for key, value in inzerat_info.items():
             if isinstance(value, str):
-                inzerat_info[key] = strip_accents(value)
+                inzerat_info[key] = strip_accents(value).strip()
 
         return inzerat_info
 
