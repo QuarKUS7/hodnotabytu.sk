@@ -3,13 +3,19 @@ import time
 import logging
 import pickle
 
+import hyperopt
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
+
+from sklearn.metrics import mean_squared_error
+
 import xgboost as xgb
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
 
 from db.Database import Database
 from scraper import init_logger
 
+from sklearn.model_selection import train_test_split
 
 class PipelineDB(Database):
 
@@ -69,20 +75,57 @@ class Pipeline():
 
         X = self.data.drop(['cena'], axis=1)
 
-        self.data_dmatrix = xgb.DMatrix(data=X,label=y)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2)
+
+        self.dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
+
+        self.dtest = xgb.DMatrix(self.X_test)
+
+        self.space = {
+                'max_depth':hp.choice('max_depth', np.arange(10, 25, 1, dtype=int)),
+                'n_estimators':hp.choice('n_estimators', np.arange(1000, 10000, 10, dtype=int)),
+                'colsample_bytree':hp.quniform('colsample_bytree', 0.5, 1.0, 0.1),
+                'min_child_weight':hp.choice('min_child_weight', np.arange(250, 350, 10, dtype=int)),
+                'subsample':hp.quniform('subsample', 0.7, 0.9, 0.1),
+                'eta':hp.quniform('eta', 0.1, 0.3, 0.1),
+                'objective':'reg:squarederror',
+                'eval_metric': 'rmse',
+            }
+
+    def score(self, params):
+
+        model = xgb.XGBRegressor(**params)
+
+        model.fit(self.X_train, self.y_train, verbose=False)
+
+        Y_pred = model.predict(self.X_test)
+
+        score = mean_squared_error(self.y_test, Y_pred, squared=False)
+
+        print(score)
+
+        return {'loss': score, 'status': STATUS_OK}
+
+    def optimize(self, trials, space):
+
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=100)
+        return best
 
     def train_model(self):
-        params = {"objective":"reg:linear",'colsample_bytree': 0.3,'learning_rate': 0.1,
-                'max_depth': 7, 'alpha': 10}
 
-        cv_results = xgb.cv(dtrain=self.data_dmatrix, params=params, nfold=3,
-                    num_boost_round=50,early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+        trials = Trials()
 
-        cv_results.head()
+        best_params = self.optimize(trials, self.space)
 
-        print((cv_results["test-rmse-mean"]).tail(1))
+        params = space_eval(self.space, best_params)
 
-        self.xg_reg = xgb.train(params=params, dtrain=self.data_dmatrix, num_boost_round=10)
+        self.xg_reg = xgb.train(params, self.dtrain, num_boost_round=250)
+
+        # Predict on testing and training set
+        y_pred = self.xg_reg.predict(self.dtest)
+
+        # Report testing and training RMSE
+        print(mean_squared_error(self.y_test, y_pred, squared=False))
 
     def save_model(self):
 
