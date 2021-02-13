@@ -6,7 +6,7 @@ import pickle
 import hyperopt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
 
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 
 import xgboost as xgb
 import pandas as pd
@@ -75,22 +75,20 @@ class Pipeline():
 
         X = self.data.drop(['cena'], axis=1)
 
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.1, random_state=123)
 
         self.dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
 
         self.dtest = xgb.DMatrix(self.X_test)
 
         self.space = {
-                'max_depth':hp.choice('max_depth', np.arange(10, 25, 1, dtype=int)),
-                'n_estimators':hp.choice('n_estimators', np.arange(1000, 10000, 10, dtype=int)),
-                'colsample_bytree':hp.quniform('colsample_bytree', 0.5, 1.0, 0.1),
-                'min_child_weight':hp.choice('min_child_weight', np.arange(250, 350, 10, dtype=int)),
-                'subsample':hp.quniform('subsample', 0.7, 0.9, 0.1),
-                'eta':hp.quniform('eta', 0.1, 0.3, 0.1),
-                'objective':'reg:squarederror',
-                'eval_metric': 'rmse',
-            }
+            'learning_rate':    hp.choice('learning_rate',    np.arange(0.05, 0.5, 0.05)),
+            'max_depth':        hp.choice('max_depth',        np.arange(2, 30, 1, dtype=int)),
+            'min_child_weight': hp.choice('min_child_weight', np.arange(1, 8, 1, dtype=int)),
+            'colsample_bytree': hp.choice('colsample_bytree', np.arange(0.3, 1, 0.1)),
+            'subsample':        hp.uniform('subsample', 0.8, 1),
+            'n_estimators':     hp.choice('n_estimators',     np.arange(100, 2000, 100,dtype=int))
+        }
 
     def score(self, params):
 
@@ -100,7 +98,7 @@ class Pipeline():
 
         Y_pred = model.predict(self.X_test)
 
-        score = mean_squared_error(self.y_test, Y_pred, squared=False)
+        score = mean_absolute_error(self.y_test, Y_pred)
 
         print(score)
 
@@ -108,24 +106,30 @@ class Pipeline():
 
     def optimize(self, trials, space):
 
-        best = fmin(self.score, space, algo=tpe.suggest, max_evals=100)
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=2000)
         return best
 
-    def train_model(self):
+    def find_best_model(self):
 
         trials = Trials()
 
         best_params = self.optimize(trials, self.space)
 
-        params = space_eval(self.space, best_params)
+        self.best_params = space_eval(self.space, best_params)
 
-        self.xg_reg = xgb.train(params, self.dtrain, num_boost_round=250)
+        print(self.best_params)
+
+    def train_model(self):
+
+        self.xg_reg = xgb.train(self.best_params, self.dtrain, num_boost_round=250)
+
+        print(sorted( ((v,k) for k,v in self.xg_reg.get_score(importance_type='weight').items()), reverse=True))
 
         # Predict on testing and training set
         y_pred = self.xg_reg.predict(self.dtest)
 
         # Report testing and training RMSE
-        print(mean_squared_error(self.y_test, y_pred, squared=False))
+        print(mean_absolute_error(self.y_test, y_pred))
 
     def save_model(self):
 
@@ -151,6 +155,8 @@ class Pipeline():
         self.make_dummies_from_cat()
 
         self.make_data_matrix()
+
+        self.find_best_model()
 
         self.train_model()
 

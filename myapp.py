@@ -56,6 +56,7 @@ def check_cache(ctx):
 
 def make_prediction(features):
 
+    features = {k: v for k, v in features.items() if v != ''}
     pred_data = {key:0 for key in model.feature_names}
 
     num_features = ['uzit_plocha', 'rok_vystavby', 'pocet_nadz_podlazi', 'pocet_izieb', 'podlazie', 'latitude', 'longitude']
