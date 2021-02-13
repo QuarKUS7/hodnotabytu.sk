@@ -28,9 +28,11 @@ def status():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    features = request.get_json()
+    features = request.form.to_dict()
+    print(features)
     pred = make_prediction(features)
     message = {'status': 200, 'prediciton': int(pred[0])}
+    print(message)
     return json.dumps(message)
 
 def load_model(model_path=MODEL_PATH):
@@ -59,15 +61,28 @@ def make_prediction(features):
     features = {k: v for k, v in features.items() if v != ''}
     pred_data = {key:0 for key in model.feature_names}
 
-    num_features = ['uzit_plocha', 'rok_vystavby', 'pocet_nadz_podlazi', 'pocet_izieb', 'podlazie', 'latitude', 'longitude']
+    num_features = ['uzit_plocha', 'rok_vystavby', 'pocet_nadz_podlazi', 'pocet_izieb', 'podlazie', ]
     for nf in num_features:
-        pred_data[nf] = features.get(nf,np.NaN)
+        num_f = int(features.get(nf, 0))
+        if num_f == 0:
+            pred_data[nf] = np.NaN
+        else:
+            pred_data[nf] = num_f
+
+    gps_features = ['latitude', 'longitude']
+    for nf in gps_features:
+        num_f = float(features.get(nf, 0))
+        if num_f == 0:
+            pred_data[nf] = np.NaN
+        else:
+            pred_data[nf] = num_f
 
     for k,v in features.items():
-        if k not in num_features:
+        if k not in num_features + gps_features:
             feature_name = k +'_' +str(v)
             pred_data[feature_name] = 1
 
+    print(pred_data)
     pred_data = pd.DataFrame.from_dict(pred_data, orient='index').transpose()
 
     pred_dmatrix = xgb.DMatrix(data=pred_data)
