@@ -34,6 +34,7 @@ class Pipeline():
         self.db = db
         self.log = log
         self.data = None
+        self.best = './model/best'
 
     def get_data(self):
 
@@ -81,6 +82,8 @@ class Pipeline():
 
         self.dtest = xgb.DMatrix(self.X_test)
 
+        self.dfull = xgb.DMatrix(X, y)
+
         self.space = {
             'learning_rate':    hp.choice('learning_rate',    np.arange(0.05, 0.5, 0.05)),
             'max_depth':        hp.choice('max_depth',        np.arange(2, 30, 1, dtype=int)),
@@ -106,7 +109,7 @@ class Pipeline():
 
     def optimize(self, trials, space):
 
-        best = fmin(self.score, space, algo=tpe.suggest, max_evals=2000)
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=100)
         return best
 
     def find_best_model(self):
@@ -129,16 +132,29 @@ class Pipeline():
         y_pred = self.xg_reg.predict(self.dtest)
 
         # Report testing and training RMSE
-        print(mean_absolute_error(self.y_test, y_pred))
+        self.mae = mean_absolute_error(self.y_test, y_pred)
+
+        print(self.mae)
+
+        self.xg_reg = xgb.train(self.best_params, self.dfull, num_boost_round=250)
+
 
     def save_model(self):
 
-        model_name = 'model_{}'.format(str(time.time()))
+        best_model = os.path.basename(os.path.realpath(self.best))
+        score = int(float(best_model.split('_')[-1]))
+
+        if score <= self.mae:
+            log.info('New score {} is higher than present lowest {} score!'.format(score, self.mae))
+            return
+
+        model_name = 'model_{}'.format(str(self.mae))
 
         pickle.dump(self.xg_reg, open('model/{}'.format(model_name), 'wb'))
 
         try:
-            os.unlink('./model/best')
+            os.unlink(self.best)
+
         except FileNotFoundError:
             log.warning('No best soft link was found!')
 
