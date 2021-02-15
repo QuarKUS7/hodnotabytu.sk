@@ -6,10 +6,10 @@ class Database:
 
         self.log = log
         self.cnx = mysql.connector.connect(
-                host='localhost',
+                host='167.71.53.62',
                 user='scraper',
                 password='password',
-                database='zakolko'
+                database='zakolko',
             )
         self.cursor = self.cnx.cursor()
 
