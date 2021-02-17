@@ -28,7 +28,6 @@ def get_float_from_tag(tag):
         return float(found.group(0).replace(',', '.'))
     return None
 
-
 def strip_accents(text):
 
     try:
@@ -68,10 +67,10 @@ class Scraper:
     def __init__(self, url, inzerat_parser):
         self.url = url
         self.inzerat_parser = inzerat_parser
+        self.no_new_inzeraraty = 0
 
     def scrape(self):
         "Main function responsible for running scraper"
-        output = []
         pager = 1
         while True:
             page = Page(url+str(pager))
@@ -82,19 +81,22 @@ class Scraper:
 
             # scraper reached last page
             if not page.inzeraty_url:
-                return output
+                return
 
             log.info(page.inzeraty_url)
 
             processed = self.inzerat_parser.get_all_inzeraty_on_page(page.inzeraty_url)
 
             if not processed:
-                return output
+                return
 
-            output.extend(processed)
+            for r in processed:
+                inzerat_parser.db.insert_inzerat(r)
+                self.no_new_inzeraraty += 1
+
             pager += 1
 
-        return output
+        return
 
 
 class Page:
@@ -153,6 +155,7 @@ class InzeratParser:
             if self.has_already_seen(inzerat_url):
                 continue
 
+            log.info(inzerat_url)
             inzerat_info = self.process_inzerat(inzerat_url)
 
             if not inzerat_info:
@@ -165,13 +168,17 @@ class InzeratParser:
         return inzeraty
 
     def get_info_from_inzerat(self, body):
+
+        inzerat_info = {}
+
         head_div = body.find('div', {'class': 'sub--head'})
+
         info_div = head_div.find('div', {'class': 'parameter--info'})
         divTag = info_div.findAll('div')
-        inzerat_info = {}
         for t in divTag:
             k, v = str(t.get_text()).split(':')
             inzerat_info[k] = v
+
         location_div = head_div.find('span', {'class': 'top--info-location'})
         location_text = location_div.get_text().replace('\n', '').split(',')
         inzerat_info['Okres'] = location_text[-1].strip()
@@ -184,7 +191,9 @@ class InzeratParser:
 
         cena_div = head_div.find('div', {'class': 'price--main paramNo0'})
         inzerat_info['Cena'] = cena_div.get_text().strip()
+
         addit_div = body.find('div', {'class': 'parameters--extra mt-4 mb-5'})
+
         if addit_div:
             divTag = addit_div.find('div', {'id': 'additional-features-modal-button'})
             divTag = divTag.findAll('div')
@@ -196,8 +205,19 @@ class InzeratParser:
                     continue
                 inzerat_info[k] = v.strip()
 
-        gps_div = body.find('div', {'id': 'map-detail'}).attrs['data-gps-marker']
+        button_div = body.find('ul', {'class': 'row m-0'})
 
+        if button_div:
+            divTag = button_div.find_all('div', {'class': 'additional-features--item'})
+            for t in divTag:
+                try:
+                    k, v = str(t.get_text()).replace('\n','').split(':')
+                except ValueError:
+                    log.error(t)
+                    continue
+                inzerat_info[k] = v.strip()
+
+        gps_div = body.find('div', {'id': 'map-detail'}).attrs['data-gps-marker']
         gps_info = json.loads(gps_div)
         inzerat_info['lat'] = gps_info['gpsLatitude']
         inzerat_info['lon'] = gps_info['gpsLongitude']
@@ -222,6 +242,8 @@ class InzeratParser:
         inzerat.energ_cert = inzerat_info.get('Energetický certifikát', '')
         inzerat.garaz = inzerat_info.get('Garáž', '')
         inzerat.garazove_statie = inzerat_info.get('Garážové státie', '')
+        inzerat.orientacia = inzerat_info.get('Orientácia', '')
+        inzerat.telkoint = inzerat_info.get('Telekomunikáčné a dátové siete', '')
 
     def get_int_info(self, inzerat_info, inzerat):
         try:
@@ -292,15 +314,9 @@ if __name__ == '__main__':
 
     db = ScraperDB(log=log)
     inzerat_parser = InzeratParser(db)
+
     scraper = Scraper(url, inzerat_parser)
-    records = scraper.scrape()
+    scraper.scrape()
 
-    if not records:
-        log.info('No new inzeraty, quiting without output!')
-        sys.exit()
-
-    for r in records:
-        db.insert_inzerat(r)
-
-    log.info('{} records inserted'.format(len(records)))
+    log.info('{} records inserted'.format(scraper.no_new_inzeraraty))
     log.info('Scraping done!')

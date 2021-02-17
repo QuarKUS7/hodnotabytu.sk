@@ -13,6 +13,8 @@ class Inzerat:
     zdroj: str=''
     kurenie: str= ''
     energ_cert: str= ''
+    orientacia: str= ''
+    telkoint: str= ''
     uzit_plocha: float=-1
     cena_m2: float=-1
     cena: float=-1

@@ -10,6 +10,8 @@ CREATE TABLE `inzeraty` (
         `stav` VARCHAR(255),
         `kurenie` VARCHAR(255),
         `energ_cert` VARCHAR(255),
+        `orientacia` VARCHAR(255),
+        `telkoint` VARCHAR(255),
         `uzit_plocha` FLOAT,
         `cena_m2` FLOAT,
         `cena` FLOAT,
