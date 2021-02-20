@@ -6,8 +6,8 @@ class Database:
 
         self.log = log
         self.cnx = mysql.connector.connect(
-                #host='167.71.53.62',
-                host='localhost',
+                host='167.71.53.62',
+                #host='localhost',
                 user='scraper',
                 password='password',
                 database='zakolko',

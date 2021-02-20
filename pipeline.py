@@ -49,7 +49,7 @@ class Pipeline():
         self.data = self.data.drop(['id', 'zdroj', 'timestamp'], axis=1)
 
         # prilis malo nenulovych hodnot
-        self.data = self.data.drop(['balkon', 'lodzia', 'verejne_parkovanie','garaz', 'garazove_statie'], axis=1)
+        self.data = self.data.drop(['balkon', 'lodzia', 'verejne_parkovanie', 'orientacia', 'telkoint'], axis=1)
 
         # model zatial iba pre bratislavu
         self.data = self.data.drop(['okres'], axis=1)
@@ -63,26 +63,50 @@ class Pipeline():
         # drop riadkov kde cena je neznama/dohodu
         self.data = self.data[self.data['cena'].notna()]
 
+        # drop extremne ceny
+        self.data = self.data[600000 > self.data.cena]
+        self.data = self.data[40000 < self.data.cena]
+
+        # extremne hodnoty
+        #TODO: automicka detekcia outlierov
+        self.data.loc[1900 > self.data.rok_vystavby, 'rok_vystavby'] = np.NaN
+        self.data.loc[50 < self.data.podlazie, 'podlazie'] = np.NaN
+
+        self.data = self.data[17.5 > self.data.longitude]
+        self.data = self.data[16.5 < self.data.longitude]
+
+        self.data = self.data[48.4 > self.data.latitude]
+        self.data = self.data[47.9 < self.data.latitude]
+
+        # normalizuj type kurenia
+        self.data.loc[~self.data.kurenie.isin(['Ustredne', 'Lokalne']), 'kurenie'] = None
+
+        self.data.loc[self.data.energ_cert == 'nema', 'energ_cert'] = None
+
+        self.data.loc[~self.data.garaz.isnull(), 'garaz'] = 1
+        self.data.loc[self.data.garaz.isnull(), 'garaz'] = 0
+
+        self.data.loc[~self.data.garazove_statie.isnull(), 'garazove_statie'] = 1
+        self.data.loc[self.data.garazove_statie.isnull(), 'garazove_statie'] = 0
+
     def make_dummies_from_cat(self):
 
-        cat_columns = ['mesto','druh','stav', 'kurenie','energ_cert', 'vytah']
+        cat_columns = ['mesto','druh','stav', 'kurenie','energ_cert', 'vytah', 'garaz', 'garazove_statie']
 
         self.data = pd.get_dummies(self.data, columns=cat_columns, prefix=cat_columns)
 
         self.data.columns = self.data.columns.str.strip()
 
     def make_data_matrix(self):
-        y = self.data['cena']
+        self.y = self.data['cena']
 
-        X = self.data.drop(['cena'], axis=1)
+        self.X = self.data.drop(['cena'], axis=1)
 
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.1, random_state=123)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size=0.1, random_state=123)
 
         self.dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
 
         self.dtest = xgb.DMatrix(self.X_test)
-
-        self.dfull = xgb.DMatrix(X, y)
 
         self.space = {
             'learning_rate':    hp.choice('learning_rate',    np.arange(0.05, 0.5, 0.05)),
@@ -103,13 +127,13 @@ class Pipeline():
 
         score = mean_absolute_error(self.y_test, Y_pred)
 
-        print(score)
+        self.log.info(score)
 
         return {'loss': score, 'status': STATUS_OK}
 
     def optimize(self, trials, space):
 
-        best = fmin(self.score, space, algo=tpe.suggest, max_evals=100)
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=1000)
         return best
 
     def find_best_model(self):
@@ -120,45 +144,48 @@ class Pipeline():
 
         self.best_params = space_eval(self.space, best_params)
 
-        print(self.best_params)
+        self.log.info(self.best_params)
 
     def train_model(self):
 
-        self.xg_reg = xgb.train(self.best_params, self.dtrain, num_boost_round=250)
+        # overenie prenosu best_params
+        self.xg_reg = xgb.XGBRegressor(**self.best_params)
 
-        print(sorted( ((v,k) for k,v in self.xg_reg.get_score(importance_type='weight').items()), reverse=True))
+        self.xg_reg.fit(self.X_train, self.y_train, verbose=False)
 
-        # Predict on testing and training set
-        y_pred = self.xg_reg.predict(self.dtest)
+        Y_pred = self.xg_reg.predict(self.X_test)
 
-        # Report testing and training RMSE
-        self.mae = mean_absolute_error(self.y_test, y_pred)
+        self.mae = mean_absolute_error(self.y_test, Y_pred)
 
-        print(self.mae)
+        self.log.info(self.mae)
 
-        self.xg_reg = xgb.train(self.best_params, self.dfull, num_boost_round=250)
+        self.log.info(sorted( ((v,k) for k,v in self.xg_reg.get_booster().get_score(importance_type='weight').items()), reverse=True))
 
+        # pretrenuj finalny model na vsetkych datach
+        self.xg_reg = xgb.XGBRegressor(**self.best_params)
+
+        self.xg_reg.fit(self.X, self.y, verbose=False)
 
     def save_model(self):
 
         best_model = os.path.basename(os.path.realpath(self.best))
-        score = int(float(best_model.split('_')[-1]))
+        best_score = int(float(best_model.split('_')[-1]))
 
-        if score <= self.mae:
-            log.info('New score {} is higher than present lowest {} score!'.format(score, self.mae))
+        new_model = 'model_{}'.format(str(int(self.mae)))
+
+        pickle.dump(self.xg_reg, open('model/{}'.format(new_model), 'wb'))
+
+        if best_score <= self.mae:
+            self.log.info('New score {} is higher than present lowest {} score!'.format(self.mae, best_score))
             return
-
-        model_name = 'model_{}'.format(str(self.mae))
-
-        pickle.dump(self.xg_reg, open('model/{}'.format(model_name), 'wb'))
 
         try:
             os.unlink(self.best)
 
         except FileNotFoundError:
-            log.warning('No best soft link was found!')
+            self.log.warning('No best soft link was found!')
 
-        os.symlink(model_name, './model/best')
+        os.symlink(new_model, './model/best')
 
     def run_pipeline(self):
 
