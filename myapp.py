@@ -9,7 +9,7 @@ import xgboost as xgb
 import numpy as np
 import pandas as pd
 
-from flask import Flask, request
+from flask import Flask, request, Response
 from scraper import init_logger
 
 
@@ -28,10 +28,13 @@ def status():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    features = request.get_json()
+    features = json.loads(request.data)
+    log.info(features)
     pred = make_prediction(features)
-    message = {'status': 200, 'prediciton': int(pred[0])}
-    return json.dumps(message)
+    message = {'status': 200, 'prediction': int(pred[0])}
+    response = Response(json.dumps(message))
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 def load_model(model_path=MODEL_PATH):
     uwsgi.cache_update('busy', 'yes')
@@ -57,21 +60,33 @@ def check_cache(ctx):
 def make_prediction(features):
 
     features = {k: v for k, v in features.items() if v != ''}
-    pred_data = {key:0 for key in model.feature_names}
+    pred_data = {key:0 for key in model.get_booster().feature_names}
 
-    num_features = ['uzit_plocha', 'rok_vystavby', 'pocet_nadz_podlazi', 'pocet_izieb', 'podlazie', 'latitude', 'longitude']
+    num_features = ['uzit_plocha', 'rok_vystavby', 'pocet_nadz_podlazi', 'pocet_izieb', 'podlazie', ]
     for nf in num_features:
-        pred_data[nf] = features.get(nf,np.NaN)
+        num_f = int(features.get(nf, 0))
+        if num_f == 0:
+            pred_data[nf] = np.NaN
+        else:
+            pred_data[nf] = num_f
+
+    gps_features = ['latitude', 'longitude']
+    for nf in gps_features:
+        num_f = float(features.get(nf, 0))
+        if num_f == 0:
+            pred_data[nf] = np.NaN
+        else:
+            pred_data[nf] = num_f
 
     for k,v in features.items():
-        if k not in num_features:
+        if k not in num_features + gps_features:
             feature_name = k +'_' +str(v)
             pred_data[feature_name] = 1
 
+    log.info(pred_data)
     pred_data = pd.DataFrame.from_dict(pred_data, orient='index').transpose()
 
-    pred_dmatrix = xgb.DMatrix(data=pred_data)
-    return model.predict(pred_dmatrix)
+    return model.predict(pred_data)
 
 # initialize
 uid = uuid.uuid1()
