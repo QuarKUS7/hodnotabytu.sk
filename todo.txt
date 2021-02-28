@@ -1,0 +1,6 @@
+Pred spustenim je treba dotiahnut:
+1. validacie vo formulari
+2. pridat nginx
+3. intenzivne vsetko otestovat
+3. kupit domenu
+4. ssl pridat

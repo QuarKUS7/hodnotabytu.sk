@@ -104,10 +104,6 @@ class Pipeline():
 
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size=0.1, random_state=123)
 
-        self.dtrain = xgb.DMatrix(self.X_train, label=self.y_train)
-
-        self.dtest = xgb.DMatrix(self.X_test)
-
         self.space = {
             'learning_rate':    hp.choice('learning_rate',    np.arange(0.05, 0.5, 0.05)),
             'max_depth':        hp.choice('max_depth',        np.arange(2, 30, 1, dtype=int)),
@@ -133,7 +129,7 @@ class Pipeline():
 
     def optimize(self, trials, space):
 
-        best = fmin(self.score, space, algo=tpe.suggest, max_evals=1000)
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=2000)
         return best
 
     def find_best_model(self):
