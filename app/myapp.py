@@ -1,5 +1,4 @@
 import os
-import uwsgi
 import uuid
 import pickle
 import json
@@ -36,26 +35,14 @@ def predict():
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
+@app.route('/load-model', methods=['GET'])
 def load_model(model_path=MODEL_PATH):
-    uwsgi.cache_update('busy', 'yes')
     global model
     model = pickle.load(open(model_path, 'rb'))
-    model.id = uwsgi.cache_get('model_id').decode()
-    log.info('New model {} was loaded'.format(model.id))
-    uwsgi.cache_update('busy', 'no')
-
-@app.route('/update-model', methods=['GET'])
-def update_model():
-    uid = uuid.uuid1()
-    uwsgi.cache_update('model_id', str(uid.int))
-    return json.dumps({'status': 'update complete!'})
-
-@app.teardown_request
-def check_cache(ctx):
-    global model
-    if uwsgi.cache_get('model_id').decode() != model.id:
-        if uwsgi.cache_get('busy').decode() == 'no':
-            load_model()
+    message = {'status': 200}
+    response = Response(json.dumps(message))
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 def make_prediction(features):
 
@@ -88,10 +75,6 @@ def make_prediction(features):
 
     return model.predict(pred_data)
 
-# initialize
-uid = uuid.uuid1()
-uwsgi.cache_update('model_id', str(uid.int))
-load_model(MODEL_PATH)
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
