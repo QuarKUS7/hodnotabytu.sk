@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from flask import Flask, request, Response
-from scraper import init_logger
+from logger import init_logger
 
 
 log = init_logger()

@@ -26,5 +26,7 @@ RUN chmod +x /start.sh
 COPY nginx.conf /etc/nginx/nginx.conf
 
 COPY ./app /app
+COPY ./model /app/model
+COPY ./logger.py /app
 
 CMD ["/start.sh"]
