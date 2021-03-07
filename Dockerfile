@@ -16,7 +16,7 @@ RUN useradd --create-home --shell /bin/bash nginx
 COPY requirements.txt /app/requirements.txt
 RUN pip3 install -r requirements.txt --src /usr/local/src
 
-RUN pip3 install flask mysql-connector gunicorn
+RUN pip3 install flask gunicorn
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
