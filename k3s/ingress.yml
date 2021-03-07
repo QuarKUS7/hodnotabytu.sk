@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: zakolko-ingress
+  namespace: logos
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - secretName: zakolo-tls
+      hosts:
+        - hodnotabytu.sk
+  rules:
+  - host: hodnotabytu.sk
+    http:
+      paths:
+        - path: /
+          backend:
+            serviceName: zakolo-service
+            servicePort: 80
+  - host: www.hodnotabytu.sk
+    http:
+      paths:
+        - path: /
+          backend:
+            serviceName: zakolko-service
+            servicePort: 80

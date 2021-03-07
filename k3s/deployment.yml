@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zakolko-app
+  namespace: logos
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: zakolko-backend
+  template:
+    metadata:
+      labels:
+        name: zakolko-backend
+    spec:
+      containers:
+        - name: backend
+          image: quarkus7/zakolko
+          ports:
+            - containerPort: 80
+
+
