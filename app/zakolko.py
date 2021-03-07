@@ -30,19 +30,15 @@ def predict():
     features = json.loads(request.data)
     log.info(features)
     pred = make_prediction(features)
-    message = {'status': 200, 'prediction': int(pred[0])}
+    message = {'prediction': int(pred[0])}
     response = Response(json.dumps(message))
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
-@app.route('/load-model', methods=['GET'])
-def load_model(model_path=MODEL_PATH):
-    global model
-    model = pickle.load(open(model_path, 'rb'))
-    message = {'status': 200}
-    response = Response(json.dumps(message))
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+@app.route('/update-model', methods=['GET'])
+def update_model():
+    load_model()
+    return json.dumps({'status': 'update complete!'})
 
 def make_prediction(features):
 
@@ -75,6 +71,12 @@ def make_prediction(features):
 
     return model.predict(pred_data)
 
+@app.before_first_request
+def load_model():
+    global model
+    model = pickle.load(open(MODEL_PATH, 'rb'))
+
 
 if __name__ == "__main__":
+    load_model()
     app.run(host="0.0.0.0", port=5000)
