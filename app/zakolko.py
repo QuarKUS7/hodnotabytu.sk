@@ -16,10 +16,11 @@ log = init_logger()
 
 MODEL_PATH = './model/best'
 
-
-app = Flask(__name__)
 model = None
 
+app = Flask(__name__)
+app.logger.addHandler(logging.StreamHandler())
+app.logger.setLevel(logging.INFO)
 
 @app.route('/status', methods=['GET'])
 def status():
