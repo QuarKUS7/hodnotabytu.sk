@@ -1,6 +1,6 @@
 Pred spustenim je treba dotiahnut:
-1. validacie vo formulari
-2. pridat nginx
-3. intenzivne vsetko otestovat
-3. kupit domenu
-4. ssl pridat
+1. spravit cronjob pod pre scraping
+2. vytvorit jednotlive image
+3. pridat expire pre web cache
+4. zlepsit ui pre mobil
+5. dat swap na prve vmko

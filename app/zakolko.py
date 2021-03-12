@@ -1,5 +1,4 @@
 import os
-import uwsgi
 import uuid
 import pickle
 import json
@@ -10,17 +9,18 @@ import numpy as np
 import pandas as pd
 
 from flask import Flask, request, Response
-from scraper import init_logger
+from logger import init_logger
 
 
 log = init_logger()
 
 MODEL_PATH = './model/best'
 
-
-app = Flask(__name__)
 model = None
 
+app = Flask(__name__)
+app.logger.addHandler(logging.StreamHandler())
+app.logger.setLevel(logging.INFO)
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -31,31 +31,15 @@ def predict():
     features = json.loads(request.data)
     log.info(features)
     pred = make_prediction(features)
-    message = {'status': 200, 'prediction': int(pred[0])}
+    message = {'prediction': int(pred[0])}
     response = Response(json.dumps(message))
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
-def load_model(model_path=MODEL_PATH):
-    uwsgi.cache_update('busy', 'yes')
-    global model
-    model = pickle.load(open(model_path, 'rb'))
-    model.id = uwsgi.cache_get('model_id').decode()
-    log.info('New model {} was loaded'.format(model.id))
-    uwsgi.cache_update('busy', 'no')
-
 @app.route('/update-model', methods=['GET'])
 def update_model():
-    uid = uuid.uuid1()
-    uwsgi.cache_update('model_id', str(uid.int))
+    load_model()
     return json.dumps({'status': 'update complete!'})
-
-@app.teardown_request
-def check_cache(ctx):
-    global model
-    if uwsgi.cache_get('model_id').decode() != model.id:
-        if uwsgi.cache_get('busy').decode() == 'no':
-            load_model()
 
 def make_prediction(features):
 
@@ -88,10 +72,12 @@ def make_prediction(features):
 
     return model.predict(pred_data)
 
-# initialize
-uid = uuid.uuid1()
-uwsgi.cache_update('model_id', str(uid.int))
-load_model(MODEL_PATH)
+@app.before_first_request
+def load_model():
+    global model
+    model = pickle.load(open(MODEL_PATH, 'rb'))
 
-if __name__ == '__main__':
-    app.run()
+
+if __name__ == "__main__":
+    load_model()
+    app.run(host="0.0.0.0", port=5000)

@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 
 from db.Database import Database
-from scraper import init_logger
+from logger import init_logger
 
 from sklearn.model_selection import train_test_split
 

@@ -14,8 +14,8 @@ from dataclasses import asdict
 
 from inzerat import Inzerat
 from db.Database import Database
+from logger import init_logger
 
-LOGFILE = '/var/log/scraper.log'
 
 SLEEP_TIME = 3
 
@@ -41,16 +41,6 @@ def strip_accents(text):
 
     return str(text)
 
-def init_logger():
-    log = logging.getLogger()
-    formatter = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s')
-    file_handler = logging.FileHandler(LOGFILE)
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(10)
-    log.addHandler(file_handler)
-    log.setLevel(10)
-
-    return log
 
 def make_request(url):
     "Make request and get response"
