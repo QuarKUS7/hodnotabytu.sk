@@ -18,7 +18,7 @@ spec:
       paths:
         - path: /
           backend:
-            serviceName: zakolo-service
+            serviceName: zakolko-service
             servicePort: 80
   - host: www.hodnotabytu.sk
     http:
