@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: quarkus7/zakolko
+          imagePullPolicy: Always
+          image: quarkus7/zakolko:latest
           ports:
             - containerPort: 80
 
