@@ -4,8 +4,8 @@ jobs:
     docker:
       - image: circleci/buildpack-deps:stretch
     environment:
-      IMAGE_NAME: dockerhub-username/do-kubernetes-sample-app
-    working_directory: ~/app
+      IMAGE_NAME: quarkus7/zakolko
+    working_directory: ~/zakolko
     steps:
       - checkout
       - setup_remote_docker
@@ -17,12 +17,26 @@ jobs:
           name: Push Docker Image
           command: |
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            IMAGE_TAG=${CIRCLE_TAG/v/''}
+            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$IMAGE_TAG
             docker push $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$IMAGE_TAG
+      - run:
+          name: Install kubectl
+          command: |
+            curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+            chmod u+x ./kubectl
+      - run: |
+          echo "$KUBERNETES_CLUSTER_CERTIFICATE" | base64 --decode > cert.crt
+          ./kubectl --kubeconfig=/dev/null --server=$KUBERNETES_SERVER --certificate-authority=cert.crt --token=$KUBERNETES_TOKEN rollout restart deployment zakolko-app -n logos
 workflows:
   version: 2
   build-master:
     jobs:
       - build:
           filters:
+            tags:
+              only: /^v.*/
             branches:
-              only: master
+              ignore: /.*/
+
