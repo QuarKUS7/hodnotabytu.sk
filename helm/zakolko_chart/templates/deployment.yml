@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.name }}-app"
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      name: "{{ .Values.name }}-backend"
+  template:
+    metadata:
+      labels:
+        name: "{{ .Values.name }}-backend"
+    spec:
+      containers:
+        - name: {{ .Values.image.name }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "quarkus7/zakolko:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 80
+
+
