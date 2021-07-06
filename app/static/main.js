@@ -56,7 +56,7 @@ async function handleFormSubmit(event) {
 const exampleForm = document.getElementById("byt-form");
 exampleForm.addEventListener("submit", handleFormSubmit);
 
-var startDateTime = new Date(2021,5,22,18); // YYYY (M-1) D H m s
+var startDateTime = new Date(2021,6,6,18); // YYYY (M-1) D H m s
 var startStamp = startDateTime.getTime();
 
 var newDate = new Date();
