@@ -1,26 +1,42 @@
+"""
+Script urceny na natrenovanie modelu z dat. Kedze sa mi nechce rucne tunit hyperparametre, nechavam tuto zabavnu cinnost na HyperOpt. Dlzku hladanie parametrov je mozne riadit pomocou poct EVALS.
+Ako metriku pouzivam MAE, lebo mi pride najlepsia pre nehnutelnosti.
+"""
 import os
-import time
-import logging
+import sys
 import pickle
+import logging
 
-import hyperopt
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
-
-from sklearn.metrics import mean_absolute_error
+from db.Database import Database
 
 import xgboost as xgb
 import pandas as pd
 import numpy as np
 
-from db.Database import Database
-from logger import init_logger
-
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
+from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
+
+LOGFILE = '/var/log/pipeline.log'
+formatter = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s')
+
+log = logging.getLogger()
+log.setLevel(10)
+
+file_handler = logging.FileHandler(LOGFILE)
+file_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
+
+log.addHandler(file_handler)
+log.addHandler(stream_handler)
+
+EVALS = 2000
 
 class PipelineDB(Database):
 
-    def __init__(self, log):
-        super().__init__(log)
+    def __init__(self):
+        super().__init__()
 
     def get_all_inzeraty(self):
         sql = "SELECT * FROM inzeraty"
@@ -29,6 +45,7 @@ class PipelineDB(Database):
 
 
 class Pipeline():
+    """Pipeline pre natrenovanie modelu cien nehnutelnosti. Hyperparametre su optimalizovane automaticky pomocou hyperopt"""
 
     def __init__(self, db, log):
         self.db = db
@@ -37,7 +54,6 @@ class Pipeline():
         self.best = './model/best'
 
     def get_data(self):
-
         self.data = self.db.get_all_inzeraty()
 
     def clean_data(self):
@@ -68,7 +84,7 @@ class Pipeline():
         self.data = self.data[40000 < self.data.cena]
 
         # extremne hodnoty
-        #TODO: automicka detekcia outlierov
+        #TODO: automaticka detekcia outlierov
         self.data.loc[1900 > self.data.rok_vystavby, 'rok_vystavby'] = np.NaN
         self.data.loc[50 < self.data.podlazie, 'podlazie'] = np.NaN
 
@@ -129,7 +145,7 @@ class Pipeline():
 
     def optimize(self, trials, space):
 
-        best = fmin(self.score, space, algo=tpe.suggest, max_evals=2000)
+        best = fmin(self.score, space, algo=tpe.suggest, max_evals=EVALS)
         return best
 
     def find_best_model(self):
@@ -206,9 +222,7 @@ class Pipeline():
 
 if __name__ == '__main__':
 
-    log = init_logger()
-
-    pipe_db = PipelineDB(log)
+    pipe_db = PipelineDB()
 
     pipe = Pipeline(pipe_db, log)
     pipe.run_pipeline()

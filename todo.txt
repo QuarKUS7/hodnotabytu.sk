@@ -1,5 +1,5 @@
 Pred spustenim je treba dotiahnut:
-1. spravit cronjob pod pre scraping
+1. spravit cronjob pre scraping
 2. vytvorit jednotlive image
 3. pridat expire pre web cache
 4. zlepsit ui pre mobil

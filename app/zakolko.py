@@ -1,35 +1,34 @@
-import os
-import uuid
-import pickle
 import json
+import pickle
 import logging
 
-import xgboost as xgb
 import numpy as np
 import pandas as pd
 
 from flask import Flask, request, Response
-from logger import init_logger
-
-
-log = init_logger()
 
 MODEL_PATH = './model/best'
-
 model = None
+LOGFILE = '/var/log/app.log'
+FORMATTER = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s')
+
+file_handler = logging.FileHandler(LOGFILE)
+file_handler.setFormatter(FORMATTER)
+file_handler.setLevel(10)
 
 app = Flask(__name__)
-app.logger.addHandler(logging.StreamHandler())
-app.logger.setLevel(logging.INFO)
+app.logger.addHandler(file_handler)
+
 
 @app.route('/status', methods=['GET'])
 def status():
+    app.logger.info("I am OK!")
     return json.dumps({'myapp': 'I am OK!'})
 
 @app.route('/predict', methods=['POST'])
 def predict():
     features = json.loads(request.data)
-    log.info(features)
+    app.logger.info(features)
     pred = make_prediction(features)
     message = {'prediction': int(pred[0])}
     response = Response(json.dumps(message))
@@ -67,7 +66,7 @@ def make_prediction(features):
             feature_name = k +'_' +str(v)
             pred_data[feature_name] = 1
 
-    log.info(pred_data)
+    app.logger.info(pred_data)
     pred_data = pd.DataFrame.from_dict(pred_data, orient='index').transpose()
 
     return model.predict(pred_data)

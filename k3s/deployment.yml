@@ -4,7 +4,7 @@ metadata:
   name: zakolko-app
   namespace: logos
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       name: zakolko-backend
@@ -19,5 +19,17 @@ spec:
           image: quarkus7/zakolko:latest
           ports:
             - containerPort: 80
-
-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zakolko-service
+  namespace: logos
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+  selector:
+    name: zakolko-backend

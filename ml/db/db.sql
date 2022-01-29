@@ -33,4 +33,3 @@ CREATE TABLE `inzeraty` (
 
 CREATE USER 'scraper'@'localhost' IDENTIFIED BY 'password';
 GRANT ALL PRIVILEGES ON *.* TO 'scraper'@localhost IDENTIFIED BY 'password';
-

@@ -1,4 +1,6 @@
-import os
+"""
+Script urceny na scrapovanie vybranej stranky s nehnutelnostami. Sparsovane data su potom ukladane vo forme recordu do DB.
+"""
 import re
 import sys
 import time
@@ -14,13 +16,24 @@ from dataclasses import asdict
 
 from inzerat import Inzerat
 from db.Database import Database
-from logger import init_logger
 
-
+LOGFILE = '/var/log/scraper.log'
 SLEEP_TIME = 3
 
 # url template
 url = 'https://www.nehnutelnosti.sk/bratislava/byty/predaj/?p[page]='
+formatter = logging.Formatter('%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s')
+
+log = logging.getLogger()
+log.setLevel(10)
+
+file_handler = logging.FileHandler(LOGFILE)
+file_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
+
+log.addHandler(file_handler)
+log.addHandler(stream_handler)
 
 def get_float_from_tag(tag):
     found = re.search(r'(-?\d+\,?\d+)', tag.replace(' ',''))
@@ -29,7 +42,6 @@ def get_float_from_tag(tag):
     return None
 
 def strip_accents(text):
-
     try:
         text = unicode(text, 'utf-8')
     except NameError: # unicode is a default on python 3
@@ -41,9 +53,8 @@ def strip_accents(text):
 
     return str(text)
 
-
 def make_request(url):
-    "Make request and get response"
+    "Make request and get response. Use random sleep up to 5s, so we dont get blocked"
     time.sleep(random.uniform(1,5))
     response = requests.get(url, timeout=60)
     return response
@@ -53,11 +64,12 @@ def parse_response(response):
 
 
 class Scraper:
+    """Hlavna trieda na scrapovanie daneho portalu s nehnutelnostami"""
 
     def __init__(self, url, inzerat_parser):
         self.url = url
         self.inzerat_parser = inzerat_parser
-        self.no_new_inzeraraty = 0
+        self.no_new_inzeraty = 0
 
     def scrape(self):
         "Main function responsible for running scraper"
@@ -80,16 +92,15 @@ class Scraper:
             if not processed:
                 return
 
-            for r in processed:
-                inzerat_parser.db.insert_inzerat(r)
-                self.no_new_inzeraraty += 1
+            for record in processed:
+                inzerat_parser.db.insert_inzerat(record)
+                self.no_new_inzeraty += 1
 
             pager += 1
 
-        return
-
 
 class Page:
+    """Class representing single portal page"""
 
     def __init__(self, url):
         self.url = url
@@ -109,6 +120,7 @@ class Page:
 
 
 class InzeratParser:
+    """Class for parsing single inzerat on a page. There are many inzerat's on a single page"""
 
     def __init__(self, db):
         self.db = db
@@ -298,8 +310,6 @@ class ScraperDB(Database):
 
 if __name__ == '__main__':
 
-    log = init_logger()
-
     log.info('Scraping started!')
 
     db = ScraperDB(log=log)
@@ -308,5 +318,5 @@ if __name__ == '__main__':
     scraper = Scraper(url, inzerat_parser)
     scraper.scrape()
 
-    log.info('{} records inserted'.format(scraper.no_new_inzeraraty))
+    log.info('{} records inserted'.format(scraper.no_new_inzeraty))
     log.info('Scraping done!')

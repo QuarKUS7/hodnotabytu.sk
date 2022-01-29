@@ -2,11 +2,9 @@ import mysql.connector
 
 
 class Database:
-    def __init__(self, log, config=None):
+    def __init__(self):
 
-        self.log = log
         self.cnx = mysql.connector.connect(
-#                host='167.71.53.62',
                 host='localhost',
                 user='scraper',
                 password='password',
