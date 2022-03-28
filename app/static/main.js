@@ -55,17 +55,3 @@ async function handleFormSubmit(event) {
 
 const exampleForm = document.getElementById("byt-form");
 exampleForm.addEventListener("submit", handleFormSubmit);
-
-var startDateTime = new Date(2021,6,6,18); // YYYY (M-1) D H m s
-var startStamp = startDateTime.getTime();
-
-var newDate = new Date();
-var newStamp = newDate.getTime();
-
-var diff = Math.round((newStamp-startStamp)/1000);
-
-var d = Math.floor(diff/(24*60*60));
-diff = diff-(d*24*60*60);
-var h = Math.floor(diff/(60*60));
- 
-document.getElementById("time-elapsed").innerHTML = d+" dní a "+h+" hodín";
