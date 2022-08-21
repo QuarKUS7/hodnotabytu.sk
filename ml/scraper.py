@@ -35,6 +35,7 @@ stream_handler.setFormatter(formatter)
 log.addHandler(file_handler)
 log.addHandler(stream_handler)
 
+
 def get_float_from_tag(tag):
     found = re.search(r'(-?\d+\,?\d+)', tag.replace(' ',''))
     if found:
@@ -290,8 +291,8 @@ class InzeratParser:
 
 class ScraperDB(Database):
 
-    def __init__(self, log):
-        super().__init__(log)
+    def __init__(self):
+        super().__init__()
 
     def insert_inzerat(self, inzerat):
         record = asdict(inzerat)
@@ -312,7 +313,7 @@ if __name__ == '__main__':
 
     log.info('Scraping started!')
 
-    db = ScraperDB(log=log)
+    db = ScraperDB()
     inzerat_parser = InzeratParser(db)
 
     scraper = Scraper(url, inzerat_parser)

@@ -1,6 +1,6 @@
 CREATE DATABASE zakolko CHARACTER SET='utf8'; 
 
-CREATE TABLE `inzeraty` (
+CREATE TABLE `zakolko`.`inzeraty` (
         `id` VARCHAR(255),
         `zdroj` VARCHAR(255),
         `ulica` VARCHAR(255),
@@ -32,4 +32,4 @@ CREATE TABLE `inzeraty` (
 ) ENGINE=InnoDB CHARSET='utf8';
 
 CREATE USER 'scraper'@'localhost' IDENTIFIED BY 'password';
-GRANT ALL PRIVILEGES ON *.* TO 'scraper'@localhost IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON zalkolko.* TO 'scraper'@'localhost';
